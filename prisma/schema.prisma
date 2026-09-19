@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String           @id @default(cuid())
+  displayName  String
+  email        String           @unique
+  passwordHash String
+  createdAt    DateTime         @default(now())
+  memberships  CampaignMember[]
+  notes        Note[]
+  sessions     Session[]
+  discoveries  CharacterDiscovery[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Campaign {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  members     CampaignMember[]
+  maps        Map[]
+  characters  Character[]
+  locations   Location[]
+  factions    Faction[]
+  quests      Quest[]
+  items       Item[]
+  events      Event[]
+  notes       Note[]
+  noteFolders NoteFolder[]
+  assets      Asset[]
+  createdAt   DateTime         @default(now())
+}
+
+model CampaignMember {
+  id         String   @id @default(cuid())
+  userId     String
+  campaignId String
+  role       String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, campaignId])
+  @@index([campaignId, role])
+}
+
+model Map {
+  id         String      @id @default(cuid())
+  campaignId String
+  name       String
+  imageUrl   String
+  width      Int
+  height     Int
+  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  markers    MapMarker[]
+  parentId   String?
+  parent     Map?       @relation("MapTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   Map[]      @relation("MapTree")
+  createdAt  DateTime    @default(now())
+}
+
+model MapMarker {
+  id                String  @id @default(cuid())
+  mapId             String
+  type              String
+  label             String
+  x                 Float
+  y                 Float
+  entityId          String?
+  visibleToPlayers  Boolean @default(true)
+  category          String?
+  icon              String?
+  map               Map     @relation(fields: [mapId], references: [id], onDelete: Cascade)
+
+  @@index([mapId])
+  @@unique([mapId, entityId])
+}
+
+model Character {
+  id                 String   @id @default(cuid())
+  campaignId         String
+  name               String
+  title              String?
+  portraitUrl        String?
+  description        String?
+  publicInfo         String?
+  gmInfo             String?
+  sourcePath         String?
+  currentLocationName String?
+  archived           Boolean  @default(false)
+  campaign           Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  notes              Note[]
+  discoveries        CharacterDiscovery[]
+
+  @@index([campaignId, name])
+}
+
+model CharacterDiscovery {
+  id          String    @id @default(cuid())
+  characterId String
+  userId      String
+  revealedAt  DateTime  @default(now())
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([characterId, userId])
+  @@index([userId])
+}
+
+model Location {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  type        String?
+  imageUrl    String?
+  description String?
+  gmInfo      String?
+  parentId    String?
+  archived    Boolean  @default(false)
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  notes       Note[]
+  parent      Location?  @relation("LocationTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Location[] @relation("LocationTree")
+
+  @@index([campaignId, name])
+}
+
+model Faction {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  description String?
+  gmInfo      String?
+  archived    Boolean  @default(false)
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model Quest {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  description String?
+  gmInfo      String?
+  archived    Boolean  @default(false)
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model Item {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  description String?
+  gmInfo      String?
+  archived    Boolean  @default(false)
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  description String?
+  gmInfo      String?
+  archived    Boolean  @default(false)
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model NoteFolder {
+  id         String       @id @default(cuid())
+  campaignId String
+  name       String
+  parentId   String?
+  sortOrder  Int          @default(0)
+  campaign   Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  parent     NoteFolder?  @relation("NoteFolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   NoteFolder[] @relation("NoteFolderTree")
+  notes      Note[]
+
+  @@index([campaignId, parentId])
+}
+
+model Note {
+  id                String      @id @default(cuid())
+  userId            String
+  campaignId        String
+  title             String
+  body              String
+  direction         String      @default("LTR")
+  sharedWithGM      Boolean     @default(false)
+  archived          Boolean     @default(false)
+  visibility        String      @default("PRIVATE")
+  sourcePath        String?
+  folderId          String?
+  folder            NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  linkedCharacterId  String?
+  linkedLocationId   String?
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign          Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  character         Character?  @relation(fields: [linkedCharacterId], references: [id], onDelete: SetNull)
+  location          Location?   @relation(fields: [linkedLocationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, campaignId])
+  @@index([campaignId, folderId])
+}
+
+model Asset {
+  id         String   @id @default(cuid())
+  campaignId String
+  name       String
+  url        String
+  type       String?
+  folder     String           @default("OTHER")
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
