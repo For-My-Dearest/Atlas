@@ -40,6 +40,10 @@ npm install
 
 This installs everything required to run the Atlas.
 
+Then run:
+```
+npx prisma generate
+```
 ---
 
 ## 3. Start the Application
